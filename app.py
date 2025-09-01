@@ -3,7 +3,7 @@ from typing import TypedDict
 import os
 from git import Repo
 from utils.system_monitor import SystemMonitor
-from utils.vector_store import create_vector_store
+from utils.vector_store import create_vector_store  # Updated to use FAISS
 
 from agents.documentation_agent import DocumentationAgent
 from agents.command_flow_agent import CommandFlowAgent
@@ -16,7 +16,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from config import Config
 
-# Global system monitor (safe mode for Streamlit)
+# --- System Monitor (safe for Streamlit Cloud) ---
 try:
     monitor = SystemMonitor()
     system_monitor_enabled = True
@@ -36,10 +36,9 @@ class AgentState(TypedDict):
     execution_results: str
     final_report: str
 
-
 # --- Node Functions ---
 def setup_vector_store(state: AgentState):
-    vector_store, documents = create_vector_store(state["repo_path"])
+    vector_store, documents = create_vector_store(state["repo_path"])  # FAISS-based
     return {"vector_store": vector_store, "documents": documents}
 
 def run_doc_agent(state: AgentState):
@@ -86,8 +85,7 @@ def run_report_agent(state: AgentState):
     )
     return {"final_report": report}
 
-
-# --- LangGraph Workflow ---
+# --- Workflow using LangGraph ---
 def create_workflow():
     workflow = StateGraph(AgentState)
 
@@ -115,8 +113,7 @@ def create_workflow():
 
     return workflow.compile()
 
-
-# --- Streamlit App UI ---
+# --- Streamlit App ---
 def main():
     st.title("🛡️ Open Source Vulnerability Detection")
     st.markdown("Analyze open-source repos for risky patterns using LLM agents 🔍")
@@ -171,7 +168,6 @@ def main():
             shutil.rmtree(repo_path)
         else:
             st.error("⚠️ Please enter a valid Git repository URL.")
-
 
 if __name__ == "__main__":
     main()
