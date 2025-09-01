@@ -1,13 +1,12 @@
 import streamlit as st
-import subprocess
 from typing import TypedDict
-
+import os
+from git import Repo
 from utils.system_monitor import SystemMonitor
 from utils.vector_store import create_vector_store
 
 from agents.documentation_agent import DocumentationAgent
 from agents.command_flow_agent import CommandFlowAgent
-from agents.system_monitor_agent import SystemMonitorAgent
 from agents.code_review_agent import CodeReviewAgent
 from agents.execution_agent import ExecutionAgent
 from agents.report_agent import ReportAgent
@@ -17,9 +16,13 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from config import Config
 
-# Global system monitor object
-monitor = SystemMonitor()
-
+# Global system monitor (safe mode for Streamlit)
+try:
+    monitor = SystemMonitor()
+    system_monitor_enabled = True
+except Exception:
+    system_monitor_enabled = False
+    monitor = None
 
 # --- Agent State ---
 class AgentState(TypedDict):
@@ -48,6 +51,9 @@ def run_command_agent(state: AgentState):
     return {"command_flow": agent.generate_commands()}
 
 def run_monitor_agent(state: AgentState):
+    if not system_monitor_enabled:
+        return {"system_changes": "System monitoring is disabled in this environment."}
+
     try:
         changes = monitor.get_changes()
     except Exception as e:
@@ -119,32 +125,50 @@ def main():
 
     if st.button("🚀 Analyze Repository"):
         if repo_url:
-            repo_path = "./data/repos/temp_repo"
-            subprocess.run(f"rm -rf {repo_path}", shell=True)  # Cleanup old repo if any
-            subprocess.run(f"git clone {repo_url} {repo_path}", shell=True)
+            with st.spinner("Cloning repository..."):
+                repo_path = "./data/repos/temp_repo"
+                if os.path.exists(repo_path):
+                    import shutil
+                    shutil.rmtree(repo_path)
+                try:
+                    Repo.clone_from(repo_url, repo_path)
+                except Exception as e:
+                    st.error(f"Failed to clone repository: {e}")
+                    return
 
-            monitor.capture_initial_state()
+            if system_monitor_enabled:
+                monitor.capture_initial_state()
 
-            workflow = create_workflow()
+            st.success("✅ Repository cloned successfully!")
+            st.write("Starting analysis...")
 
-            initial_state = AgentState(
-                repo_path=repo_path,
-                vector_store=None,
-                documents=[],
-                doc_analysis="",
-                command_flow="",
-                system_changes="",
-                code_review="",
-                execution_results="",
-                final_report=""
-            )
+            with st.spinner("Running analysis pipeline..."):
+                workflow = create_workflow()
 
-            result = workflow.invoke(initial_state)
+                initial_state = AgentState(
+                    repo_path=repo_path,
+                    vector_store=None,
+                    documents=[],
+                    doc_analysis="",
+                    command_flow="",
+                    system_changes="",
+                    code_review="",
+                    execution_results="",
+                    final_report=""
+                )
+
+                try:
+                    result = workflow.invoke(initial_state)
+                except Exception as e:
+                    st.error(f"Pipeline failed: {e}")
+                    return
 
             st.subheader("🧾 Vulnerability Report")
             st.markdown(result["final_report"])
 
-            subprocess.run(f"rm -rf {repo_path}", shell=True)
+            # Cleanup repo
+            import shutil
+            shutil.rmtree(repo_path)
         else:
             st.error("⚠️ Please enter a valid Git repository URL.")
 
