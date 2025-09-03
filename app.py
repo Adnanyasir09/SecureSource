@@ -20,6 +20,21 @@ from config import Config
 # Global system monitor object
 monitor = SystemMonitor()
 
+st.markdown(
+    """
+    <style>
+    /* Hide Streamlit menu (top-right) */
+    #MainMenu {visibility: hidden;}
+    /* Hide footer (with Made with Streamlit and GitHub/Fork) */
+    footer {visibility: hidden;}
+    /* Hide header (optional, top bar) */
+    header {visibility: hidden;}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
 
 # --- Agent State ---
 class AgentState(TypedDict):
