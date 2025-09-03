@@ -16,5 +16,7 @@ requests==2.32.5
 tqdm==4.67.1
 psutil==5.9.6
 langchain_community
+langchain_huggingface
+
 
 
