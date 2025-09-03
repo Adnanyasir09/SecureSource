@@ -1,21 +1,47 @@
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import DirectoryLoader, TextLoader
-import os
+# from langchain_community.document_loaders import GitLoader
+# from langchain_community.vectorstores import Chroma
+# from langchain_huggingface import HuggingFaceEmbeddings
+# from config import Config
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# def create_vector_store(repo_path):
+#     loader = GitLoader(
+#         repo_path=repo_path,
+#         branch="main",
+#         file_filter=lambda x: x.endswith(('.py', '.js', '.java', '.cpp', '.c', '.md', 'LICENSE'))
+#     )
+#     documents = loader.load()
+    
+#     embeddings = HuggingFaceEmbeddings(
+#     model_name=Config.EMBEDDING_MODEL,
+#     model_kwargs={'device': 'cpu'},
+#     encode_kwargs={'normalize_embeddings': True}
+#     )
+    
+#     vector_store = Chroma.from_documents(documents, embeddings)
+#     return vector_store, documents
+# vectorstore.py
+from langchain_community.document_loaders import GitLoader
+from langchain_community.vectorstores import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from config import Config
+from dotenv import load_dotenv
+load_dotenv()
 
 def create_vector_store(repo_path):
-    # Load documents
-    loader = DirectoryLoader(repo_path, glob="**/*.py", loader_cls=TextLoader)
+    loader = GitLoader(
+        repo_path=repo_path,
+        branch="main",
+        file_filter=lambda x: x.endswith(('.py', '.js', '.java', '.cpp', '.c', '.md', 'LICENSE'))
+    )
     documents = loader.load()
 
-    # Split text into chunks
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    docs = splitter.split_documents(documents)
+    embeddings = HuggingFaceEmbeddings(
+        model_name=Config.EMBEDDING_MODEL,
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={'normalize_embeddings': True}
+    )
 
-    # Create embeddings
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-    # Use FAISS instead of Chroma
-    vector_store = FAISS.from_documents(docs, embeddings)
-    return vector_store, docs
+    vector_store = Chroma.from_documents(documents, embeddings)
+    return vector_store, documents

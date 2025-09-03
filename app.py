@@ -1,12 +1,13 @@
 import streamlit as st
+import subprocess
 from typing import TypedDict
-import os
-from git import Repo
+
 from utils.system_monitor import SystemMonitor
-from utils.vector_store import create_vector_store  # Updated to use FAISS
+from utils.vector_store import create_vector_store
 
 from agents.documentation_agent import DocumentationAgent
 from agents.command_flow_agent import CommandFlowAgent
+from agents.system_monitor_agent import SystemMonitorAgent
 from agents.code_review_agent import CodeReviewAgent
 from agents.execution_agent import ExecutionAgent
 from agents.report_agent import ReportAgent
@@ -16,13 +17,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from config import Config
 
-# --- System Monitor (safe for Streamlit Cloud) ---
-try:
-    monitor = SystemMonitor()
-    system_monitor_enabled = True
-except Exception:
-    system_monitor_enabled = False
-    monitor = None
+# Global system monitor object
+monitor = SystemMonitor()
+
 
 # --- Agent State ---
 class AgentState(TypedDict):
@@ -36,9 +33,10 @@ class AgentState(TypedDict):
     execution_results: str
     final_report: str
 
+
 # --- Node Functions ---
 def setup_vector_store(state: AgentState):
-    vector_store, documents = create_vector_store(state["repo_path"])  # FAISS-based
+    vector_store, documents = create_vector_store(state["repo_path"])
     return {"vector_store": vector_store, "documents": documents}
 
 def run_doc_agent(state: AgentState):
@@ -50,9 +48,6 @@ def run_command_agent(state: AgentState):
     return {"command_flow": agent.generate_commands()}
 
 def run_monitor_agent(state: AgentState):
-    if not system_monitor_enabled:
-        return {"system_changes": "System monitoring is disabled in this environment."}
-
     try:
         changes = monitor.get_changes()
     except Exception as e:
@@ -85,7 +80,8 @@ def run_report_agent(state: AgentState):
     )
     return {"final_report": report}
 
-# --- Workflow using LangGraph ---
+
+# --- LangGraph Workflow ---
 def create_workflow():
     workflow = StateGraph(AgentState)
 
@@ -113,7 +109,8 @@ def create_workflow():
 
     return workflow.compile()
 
-# --- Streamlit App ---
+
+# --- Streamlit App UI ---
 def main():
     st.title("🛡️ Open Source Vulnerability Detection")
     st.markdown("Analyze open-source repos for risky patterns using LLM agents 🔍")
@@ -122,52 +119,35 @@ def main():
 
     if st.button("🚀 Analyze Repository"):
         if repo_url:
-            with st.spinner("Cloning repository..."):
-                repo_path = "./data/repos/temp_repo"
-                if os.path.exists(repo_path):
-                    import shutil
-                    shutil.rmtree(repo_path)
-                try:
-                    Repo.clone_from(repo_url, repo_path)
-                except Exception as e:
-                    st.error(f"Failed to clone repository: {e}")
-                    return
+            repo_path = "./data/repos/temp_repo"
+            subprocess.run(f"rm -rf {repo_path}", shell=True)  # Cleanup old repo if any
+            subprocess.run(f"git clone {repo_url} {repo_path}", shell=True)
 
-            if system_monitor_enabled:
-                monitor.capture_initial_state()
+            monitor.capture_initial_state()
 
-            st.success("✅ Repository cloned successfully!")
-            st.write("Starting analysis...")
+            workflow = create_workflow()
 
-            with st.spinner("Running analysis pipeline..."):
-                workflow = create_workflow()
+            initial_state = AgentState(
+                repo_path=repo_path,
+                vector_store=None,
+                documents=[],
+                doc_analysis="",
+                command_flow="",
+                system_changes="",
+                code_review="",
+                execution_results="",
+                final_report=""
+            )
 
-                initial_state = AgentState(
-                    repo_path=repo_path,
-                    vector_store=None,
-                    documents=[],
-                    doc_analysis="",
-                    command_flow="",
-                    system_changes="",
-                    code_review="",
-                    execution_results="",
-                    final_report=""
-                )
-
-                try:
-                    result = workflow.invoke(initial_state)
-                except Exception as e:
-                    st.error(f"Pipeline failed: {e}")
-                    return
+            result = workflow.invoke(initial_state)
 
             st.subheader("🧾 Vulnerability Report")
             st.markdown(result["final_report"])
 
-            # Cleanup repo
-            import shutil
-            shutil.rmtree(repo_path)
+            subprocess.run(f"rm -rf {repo_path}", shell=True)
         else:
             st.error("⚠️ Please enter a valid Git repository URL.")
+
 
 if __name__ == "__main__":
     main()
