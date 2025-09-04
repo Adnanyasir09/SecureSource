@@ -71,11 +71,6 @@ MODEL=llama3-8b-8192  # or mixtral-8x7b
 
 ---
 
-### 📸 UI Preview
-
-![SecuraSource UI Preview](https://via.placeholder.com/900x400?text=Screenshot+coming+soon)
-
----
 
 ### 🧪 Sample Output
 
