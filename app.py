@@ -128,7 +128,7 @@ def create_workflow():
 # --- Streamlit App UI ---
 def main():
     st.title("🛡️ Open Source Vulnerability Detection")
-    st.markdown("Analyze open-source repos for risky patterns using LLM agents 🔍")
+    st.markdown("Analyze Open-source repos for risky patterns using LLM agents 🔍")
 
     repo_url = st.text_input("🔗 Enter Git Repository URL:")
 
