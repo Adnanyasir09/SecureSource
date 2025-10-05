@@ -17,6 +17,7 @@ tqdm==4.67.1
 psutil==5.9.6
 langchain_community
 langchain_huggingface
-chromadb==0.4.24
+chromadb>=0.3.26
+
 
 
